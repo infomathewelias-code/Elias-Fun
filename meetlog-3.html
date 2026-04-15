@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MeetLog</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0f0f0e;
+    --surface: #1a1a18;
+    --surface2: #242422;
+    --border: #2e2e2a;
+    --accent: #c8a96e;
+    --accent2: #7eb8a4;
+    --text: #e8e4dc;
+    --text2: #9a9690;
+    --danger: #c96e6e;
+    --green: #7eb87e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+  }
+
+  /* ── LOCK SCREEN ── */
+  #lockScreen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    gap: 20px;
+  }
+
+  #lockScreen.hidden { display: none; }
+
+  .lock-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    color: var(--accent);
+    text-align: center;
+  }
+  .lock-logo span {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text2);
+    letter-spacing: 0.12em;
+    margin-top: 4px;
+  }
+
+  .lock-icon { font-size: 2.5rem; opacity: 0.4; }
+
+  #pinDots {
+    display: flex;
+    gap: 14px;
+    margin: 8px 0;
+  }
+
+  .pin-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: transparent;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .pin-dot.filled { background: var(--accent); border-color: var(--accent); }
+
+  .pin-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 64px);
+    gap: 10px;
+  }
+
+  .pin-btn {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 1.3rem;
+    font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pin-btn:hover { background: var(--surface2); border-color: var(--accent); }
+  .pin-btn.zero { grid-column: 2; }
+  .pin-btn.del { background: transparent; border-color: transparent; color: var(--text2); font-size: 1rem; }
+
+  .lock-hint {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text2);
+    text-align: center;
+  }
+
+  .lock-error {
+    color: var(--danger);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    min-height: 18px;
+    text-align: center;
+  }
+
+  /* First-time setup */
+  #setupScreen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9998;
+    gap: 16px;
+    padding: 24px;
+  }
+  #setupScreen.hidden { display: none; }
+  .setup-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    color: var(--accent);
+    text-align: center;
+  }
+  .setup-sub {
+    color: var(--text2);
+    font-size: 0.85rem;
+    text-align: center;
+    max-width: 280px;
+    line-height: 1.6;
+  }
+  .setup-step {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent2);
+    letter-spacing: 0.1em;
+  }
+
+  /* ── APP ── */
+  #app { display: none; }
+  #app.visible { display: block; }
+
+  header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.3rem;
+    color: var(--accent);
+  }
+  .logo span {
+    color: var(--text2);
+    font-size: 0.65rem;
+    font-family: 'IBM Plex Mono', monospace;
+    display: block;
+    letter-spacing: 0.08em;
+    margin-top: 1px;
+  }
+
+  .header-right {
+    display: flex; gap: 10px; align-items: center;
+  }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 7px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text2);
+    background: var(--surface);
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text2); }
+  .dot.recording { background: var(--danger); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .icon-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+  }
+  .tab {
+    padding: 12px 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    color: var(--text2);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── RECORDER TAB ── */
+  .main { padding: 18px 20px 80px; max-width: 720px; margin: 0 auto; }
+
+  .meeting-setup {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .field-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 7px;
+  }
+  .meeting-setup input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 11px 13px;
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.92rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .meeting-setup input:focus { border-color: var(--accent); }
+  .meeting-setup input::placeholder { color: var(--text2); }
+
+  .controls {
+    display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .btn {
+    display: flex; align-items: center; gap: 7px;
+    padding: 11px 18px;
+    border-radius: 8px; border: none;
+    cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.85rem; font-weight: 500;
+    transition: all 0.15s;
+    flex: 1; justify-content: center;
+    min-width: 110px;
+  }
+  .btn-record { background: var(--danger); color: #fff; }
+  .btn-record:hover { background: #d97a7a; }
+  .btn-record:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-stop { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-stop:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn-notes { background: var(--accent); color: var(--bg); }
+  .btn-notes:hover { background: #d4b87a; }
+  .btn-notes:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-new { background: var(--surface2); color: var(--accent2); border: 1px solid var(--border); }
+
+  .transcript-box, .notes-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .notes-box { display: none; }
+  .notes-box.visible { display: block; }
+
+  .box-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .box-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.67rem;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .word-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--text2);
+  }
+  .transcript-content {
+    padding: 16px;
+    min-height: 130px;
+    max-height: 260px;
+    overflow-y: auto;
+    font-size: 0.9rem;
+    line-height: 1.8;
+  }
+  .transcript-content:empty::before {
+    content: "Transcript appears here as you speak...";
+    color: var(--text2);
+    font-style: italic;
+  }
+  .interim { color: var(--text2); font-style: italic; }
+
+  .notes-content {
+    padding: 18px 16px;
+    font-size: 0.88rem;
+    line-height: 1.85;
+    white-space: pre-wrap;
+  }
+  .notes-content .n-section {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 16px 0 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .notes-content .n-section:first-child { margin-top: 0; }
+
+  .copy-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    padding: 5px 11px;
+    border-radius: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .timer {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--danger);
+  }
+
+  /* ── CALENDAR TAB ── */
+  .cal-wrap { padding: 18px 20px 80px; max-width: 720px; margin: 0 auto; }
+
+  .cal-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .cal-month {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem;
+    color: var(--accent);
+  }
+  .cal-arrow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .cal-arrow:hover { border-color: var(--accent); color: var(--accent); }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+  .cal-day-label {
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--text2);
+    padding: 4px 0 8px;
+    letter-spacing: 0.06em;
+  }
+  .cal-day {
+    aspect-ratio: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: default;
+    font-size: 0.85rem;
+    position: relative;
+    transition: all 0.15s;
+    background: transparent;
+  }
+  .cal-day.other-month { color: var(--text2); opacity: 0.35; }
+  .cal-day.today { border-color: var(--accent); color: var(--accent); }
+  .cal-day.has-sessions {
+    background: var(--surface);
+    border-color: var(--border);
+    cursor: pointer;
+  }
+  .cal-day.has-sessions:hover { border-color: var(--accent2); background: var(--surface2); }
+  .cal-day.selected { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .session-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--accent2);
+    position: absolute;
+    bottom: 5px;
+  }
+  .cal-day.selected .session-dot { background: var(--bg); }
+
+  /* Day detail */
+  .day-detail {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .day-detail-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    color: var(--accent);
+  }
+  .day-session-item {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .day-session-item:last-child { border-bottom: none; }
+  .day-session-item:hover { background: var(--surface2); }
+  .day-session-name { font-weight: 500; font-size: 0.9rem; margin-bottom: 4px; }
+  .day-session-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--text2);
+  }
+  .badge {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.58rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: var(--surface2);
+    color: var(--accent2);
+    border: 1px solid var(--border);
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .no-sessions-day {
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--text2);
+    font-size: 0.85rem;
+    font-style: italic;
+  }
+
+  /* ── SESSION DETAIL MODAL ── */
+  #sessionModal {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 500;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+  #sessionModal.open { display: flex; }
+
+  .modal-sheet {
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    border-radius: 18px 18px 0 0;
+    width: 100%;
+    max-width: 720px;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 20px 20px 40px;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+
+  .modal-handle {
+    width: 40px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 18px;
+  }
+  .modal-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.15rem;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .modal-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text2);
+    margin-bottom: 18px;
+  }
+  .modal-section {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 16px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-text {
+    font-size: 0.88rem;
+    line-height: 1.8;
+    color: var(--text);
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .modal-actions {
+    display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;
+  }
+  .modal-btn {
+    flex: 1; min-width: 120px;
+    padding: 11px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .modal-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .modal-btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .modal-btn.primary:hover { background: #d4b87a; }
+  .modal-btn.danger { color: var(--danger); border-color: var(--border); }
+  .modal-btn.danger:hover { border-color: var(--danger); }
+  .modal-close {
+    float: right;
+    background: none; border: none;
+    color: var(--text2); font-size: 1.3rem;
+    cursor: pointer; padding: 0 4px;
+    line-height: 1;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  @media (max-width: 480px) {
+    .btn { min-width: 90px; font-size: 0.8rem; padding: 10px 12px; }
+    .pin-btn { width: 58px; height: 58px; font-size: 1.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ SETUP SCREEN (first time) ══════════════ -->
+<div id="setupScreen">
+  <div class="lock-icon">🔐</div>
+  <div class="setup-title">Set Your PIN</div>
+  <div class="setup-sub">Choose a 4-digit PIN to protect your meeting notes. Only you can access MeetLog.</div>
+  <div class="setup-step" id="setupStep">STEP 1 — ENTER NEW PIN</div>
+  <div id="pinDots2" style="display:flex;gap:14px;margin:8px 0">
+    <div class="pin-dot" id="sd0"></div>
+    <div class="pin-dot" id="sd1"></div>
+    <div class="pin-dot" id="sd2"></div>
+    <div class="pin-dot" id="sd3"></div>
+  </div>
+  <div class="pin-pad">
+    <button class="pin-btn" onclick="setupPin('1')">1</button>
+    <button class="pin-btn" onclick="setupPin('2')">2</button>
+    <button class="pin-btn" onclick="setupPin('3')">3</button>
+    <button class="pin-btn" onclick="setupPin('4')">4</button>
+    <button class="pin-btn" onclick="setupPin('5')">5</button>
+    <button class="pin-btn" onclick="setupPin('6')">6</button>
+    <button class="pin-btn" onclick="setupPin('7')">7</button>
+    <button class="pin-btn" onclick="setupPin('8')">8</button>
+    <button class="pin-btn" onclick="setupPin('9')">9</button>
+    <button class="pin-btn zero" onclick="setupPin('0')">0</button>
+    <button class="pin-btn del" onclick="setupDel()">⌫</button>
+  </div>
+  <div class="lock-error" id="setupError"></div>
+</div>
+
+<!-- ══════════════ LOCK SCREEN ══════════════ -->
+<div id="lockScreen" class="hidden">
+  <div class="lock-icon">🔒</div>
+  <div class="lock-logo">MeetLog <span>Enter PIN to continue</span></div>
+  <div id="pinDots" style="display:flex;gap:14px;margin:8px 0">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="pin-pad">
+    <button class="pin-btn" onclick="enterPin('1')">1</button>
+    <button class="pin-btn" onclick="enterPin('2')">2</button>
+    <button class="pin-btn" onclick="enterPin('3')">3</button>
+    <button class="pin-btn" onclick="enterPin('4')">4</button>
+    <button class="pin-btn" onclick="enterPin('5')">5</button>
+    <button class="pin-btn" onclick="enterPin('6')">6</button>
+    <button class="pin-btn" onclick="enterPin('7')">7</button>
+    <button class="pin-btn" onclick="enterPin('8')">8</button>
+    <button class="pin-btn" onclick="enterPin('9')">9</button>
+    <button class="pin-btn zero" onclick="enterPin('0')">0</button>
+    <button class="pin-btn del" onclick="delPin()">⌫</button>
+  </div>
+  <div class="lock-hint">Your notes are private and stored only on this device.</div>
+  <div class="lock-error" id="pinError"></div>
+</div>
+
+<!-- ══════════════ MAIN APP ══════════════ -->
+<div id="app">
+
+  <header>
+    <div class="logo">MeetLog <span>Private Meeting Recorder</span></div>
+    <div class="header-right">
+      <div class="status-pill">
+        <div class="dot" id="statusDot"></div>
+        <span id="statusText">Ready</span>
+        <span class="timer" id="timer" style="display:none"></span>
+      </div>
+      <button class="icon-btn" onclick="lockApp()" title="Lock">🔒</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('recorder')" id="tab-recorder">⏺ Record</div>
+    <div class="tab" onclick="switchTab('calendar')" id="tab-calendar">📅 Calendar</div>
+  </div>
+
+  <!-- ── RECORDER PANEL ── -->
+  <div class="tab-panel active" id="panel-recorder">
+    <div class="main">
+
+      <div class="meeting-setup">
+        <label class="field-label">Meeting / Session Name</label>
+        <input type="text" id="meetingName" placeholder="e.g. Coordination Call — Thanal Foundation" />
+      </div>
+
+      <div class="controls">
+        <button class="btn btn-record" id="btnRecord" onclick="startRecording()">⏺ Start</button>
+        <button class="btn btn-stop" id="btnStop" onclick="stopRecording()" disabled>⏹ Stop</button>
+        <button class="btn btn-notes" id="btnNotes" onclick="generateNotes()" disabled>✦ Make Notes</button>
+        <button class="btn btn-new" onclick="newSession()">＋ New</button>
+      </div>
+
+      <div class="transcript-box">
+        <div class="box-header">
+          <span class="box-title">Live Transcript</span>
+          <span class="word-count" id="wordCount">0 words</span>
+        </div>
+        <div class="transcript-content" id="transcriptContent"></div>
+      </div>
+
+      <div class="notes-box" id="notesBox">
+        <div class="box-header">
+          <span class="box-title">✦ Structured Notes</span>
+          <button class="copy-btn" onclick="copyNotes()">Copy for OneNote</button>
+        </div>
+        <div class="notes-content" id="notesContent"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── CALENDAR PANEL ── -->
+  <div class="tab-panel" id="panel-calendar">
+    <div class="cal-wrap">
+
+      <div class="cal-nav">
+        <button class="cal-arrow" onclick="changeMonth(-1)">‹</button>
+        <div class="cal-month" id="calMonthLabel"></div>
+        <button class="cal-arrow" onclick="changeMonth(1)">›</button>
+      </div>
+
+      <div class="cal-grid" id="calGrid"></div>
+
+      <div class="day-detail" id="dayDetail" style="display:none">
+        <div class="day-detail-header" id="dayDetailHeader"></div>
+        <div id="daySessionsList"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════ SESSION MODAL ══════════════ -->
+<div id="sessionModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-meta" id="modalMeta"></div>
+    <div id="modalBody"></div>
+    <div class="modal-actions" id="modalActions"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// PIN / LOCK
+// ══════════════════════════════════════════
+let pinBuffer = '';
+let setupBuffer = '';
+let setupFirst = '';
+let isSetup = false;
+
+function hashPin(pin) {
+  // simple hash for localStorage (not cryptographic, but prevents casual viewing)
+  let h = 0;
+  for (let i = 0; i < pin.length; i++) {
+    h = (Math.imul(31, h) + pin.charCodeAt(i)) | 0;
+  }
+  return h.toString(36);
+}
+
+function init() {
+  const savedPin = localStorage.getItem('meetlog_pin');
+  if (!savedPin) {
+    // First time — show setup
+    document.getElementById('setupScreen').classList.remove('hidden');
+    document.getElementById('lockScreen').classList.add('hidden');
+    document.getElementById('app').classList.remove('visible');
+    isSetup = true;
+  } else {
+    document.getElementById('setupScreen').classList.add('hidden');
+    document.getElementById('lockScreen').classList.remove('hidden');
+    document.getElementById('app').classList.remove('visible');
+  }
+}
+
+// Setup flow
+function setupPin(digit) {
+  if (setupBuffer.length >= 4) return;
+  setupBuffer += digit;
+  updateSetupDots();
+
+  if (setupBuffer.length === 4) {
+    setTimeout(() => {
+      if (!setupFirst) {
+        // First entry
+        setupFirst = setupBuffer;
+        setupBuffer = '';
+        document.getElementById('setupStep').textContent = 'STEP 2 — CONFIRM YOUR PIN';
+        updateSetupDots();
+        document.getElementById('setupError').textContent = '';
+      } else {
+        // Confirm
+        if (setupBuffer === setupFirst) {
+          localStorage.setItem('meetlog_pin', hashPin(setupBuffer));
+          document.getElementById('setupScreen').classList.add('hidden');
+          unlockApp();
+        } else {
+          document.getElementById('setupError').textContent = 'PINs do not match. Try again.';
+          setupFirst = '';
+          setupBuffer = '';
+          document.getElementById('setupStep').textContent = 'STEP 1 — ENTER NEW PIN';
+          updateSetupDots();
+        }
+      }
+    }, 200);
+  }
+}
+
+function setupDel() {
+  setupBuffer = setupBuffer.slice(0, -1);
+  updateSetupDots();
+}
+
+function updateSetupDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('sd' + i).classList.toggle('filled', i < setupBuffer.length);
+  }
+}
+
+// Unlock flow
+function enterPin(digit) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += digit;
+  updatePinDots();
+
+  if (pinBuffer.length === 4) {
+    setTimeout(() => {
+      const saved = localStorage.getItem('meetlog_pin');
+      if (hashPin(pinBuffer) === saved) {
+        document.getElementById('pinError').textContent = '';
+        unlockApp();
+      } else {
+        document.getElementById('pinError').textContent = 'Incorrect PIN. Try again.';
+        pinBuffer = '';
+        updatePinDots();
+        // shake
+        document.getElementById('lockScreen').style.animation = 'none';
+      }
+    }, 200);
+  }
+}
+
+function delPin() {
+  pinBuffer = pinBuffer.slice(0, -1);
+  updatePinDots();
+}
+
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('d' + i).classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+
+function unlockApp() {
+  pinBuffer = '';
+  document.getElementById('lockScreen').classList.add('hidden');
+  document.getElementById('setupScreen').classList.add('hidden');
+  document.getElementById('app').classList.add('visible');
+  renderCalendar();
+  renderSessions();
+}
+
+function lockApp() {
+  pinBuffer = '';
+  updatePinDots();
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('lockScreen').classList.remove('hidden');
+  document.getElementById('pinError').textContent = '';
+  // Stop any active recording
+  if (isRecording) stopRecording();
+}
+
+// ══════════════════════════════════════════
+// RECORDER
+// ══════════════════════════════════════════
+let recognition = null;
+let finalTranscript = '';
+let lastCommitted = '';
+let isRecording = false;
+let timerInterval = null;
+let seconds = 0;
+let sessions = JSON.parse(localStorage.getItem('meetlog_sessions') || '[]');
+let currentSessionId = null;
+
+function initRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    alert('Speech recognition needs Chrome or Edge browser.');
+    return null;
+  }
+  const r = new SR();
+  r.continuous = true;
+  r.interimResults = true;
+  r.lang = 'en-IN';
+  r.maxAlternatives = 1;
+
+  r.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript.trim();
+      if (e.results[i].isFinal) {
+        const already = finalTranscript.trimEnd().toLowerCase();
+        const incoming = t.toLowerCase();
+        if (!already.endsWith(incoming)) {
+          finalTranscript += t + ' ';
+          lastCommitted = t;
+        }
+      } else {
+        if (!lastCommitted.toLowerCase().startsWith(t.toLowerCase().substring(0, 10))) {
+          interim += t;
+        }
+      }
+    }
+    renderTranscript(interim);
+  };
+
+  r.onerror = (e) => {
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    console.warn('SR error:', e.error);
+  };
+
+  r.onend = () => {
+    if (isRecording) {
+      setTimeout(() => { try { r.start(); } catch(err){} }, 150);
+    }
+  };
+
+  return r;
+}
+
+function startRecording() {
+  const name = document.getElementById('meetingName').value.trim() || 'Untitled Meeting';
+  document.getElementById('meetingName').value = name;
+
+  recognition = initRecognition();
+  if (!recognition) return;
+
+  finalTranscript = '';
+  lastCommitted = '';
+  document.getElementById('transcriptContent').innerHTML = '';
+  document.getElementById('notesBox').classList.remove('visible');
+  document.getElementById('wordCount').textContent = '0 words';
+  document.getElementById('btnNotes').disabled = true;
+
+  recognition.start();
+  isRecording = true;
+
+  document.getElementById('btnRecord').disabled = true;
+  document.getElementById('btnStop').disabled = false;
+  setStatus('recording', 'Recording');
+  startTimer();
+}
+
+function stopRecording() {
+  if (recognition) { isRecording = false; recognition.stop(); }
+  stopTimer();
+  document.getElementById('btnRecord').disabled = false;
+  document.getElementById('btnStop').disabled = true;
+  setStatus('', 'Stopped');
+  if (finalTranscript.trim().split(/\s+/).length > 10) {
+    document.getElementById('btnNotes').disabled = false;
+  }
+}
+
+function renderTranscript(interim) {
+  const el = document.getElementById('transcriptContent');
+  el.innerHTML = finalTranscript + (interim ? `<span class="interim">${interim}</span>` : '');
+  el.scrollTop = el.scrollHeight;
+  const words = finalTranscript.trim().split(/\s+/).filter(Boolean).length;
+  document.getElementById('wordCount').textContent = words + ' words';
+  if (words > 10) document.getElementById('btnNotes').disabled = false;
+}
+
+function generateNotes() {
+  const transcript = finalTranscript.trim();
+  if (!transcript) return;
+
+  const meetingName = document.getElementById('meetingName').value.trim() || 'Untitled Meeting';
+  const now = new Date();
+  const dateKey = toDateKey(now);
+  const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = now.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Generate notes OFFLINE — no API needed
+  const notes = buildNotesOffline(transcript, meetingName, dateStr, timeStr);
+
+  const notesBox = document.getElementById('notesBox');
+  const notesContent = document.getElementById('notesContent');
+  notesBox.classList.add('visible');
+  notesContent.innerHTML = formatNotesHTML(notes);
+
+  // Save session
+  const session = {
+    id: Date.now(),
+    name: meetingName,
+    dateKey,
+    dateStr,
+    timeStr,
+    transcript,
+    notes
+  };
+
+  // Remove duplicate if editing same session
+  sessions = sessions.filter(s => s.id !== currentSessionId);
+  sessions.unshift(session);
+  currentSessionId = session.id;
+  localStorage.setItem('meetlog_sessions', JSON.stringify(sessions.slice(0, 200)));
+  renderSessions();
+  renderCalendar();
+}
+
+function buildNotesOffline(transcript, name, dateStr, timeStr) {
+  const words = transcript.split(/\s+/);
+  const sentences = transcript.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 8);
+
+  // Extract action-like sentences
+  const actionWords = ['will', 'need to', 'should', 'must', 'going to', 'plan to', 'follow up', 'send', 'share', 'contact', 'call', 'meet', 'submit', 'prepare', 'arrange', 'coordinate', 'check'];
+  const actionItems = sentences.filter(s => {
+    const sl = s.toLowerCase();
+    return actionWords.some(w => sl.includes(w));
+  }).slice(0, 6);
+
+  // Key points = longer sentences
+  const keyPoints = sentences.filter(s => s.split(' ').length > 6 && !actionItems.includes(s)).slice(0, 5);
+
+  // Summary = first 2-3 sentences
+  const summary = sentences.slice(0, 3).join('. ') + (sentences.length > 3 ? '...' : '');
+
+  let notes = `MEETING: ${name}\nDATE: ${dateStr}  |  TIME: ${timeStr}\n`;
+  notes += '─'.repeat(50) + '\n\n';
+
+  notes += 'SUMMARY\n';
+  notes += (summary || 'Conversation recorded. Review transcript for details.') + '\n\n';
+
+  notes += 'KEY DISCUSSION POINTS\n';
+  if (keyPoints.length > 0) {
+    keyPoints.forEach(p => notes += `• ${p}\n`);
+  } else {
+    notes += '• See full transcript below\n';
+  }
+  notes += '\n';
+
+  notes += 'ACTION ITEMS\n';
+  if (actionItems.length > 0) {
+    actionItems.forEach(a => notes += `□ ${a}\n`);
+  } else {
+    notes += '□ Review transcript and identify follow-ups\n';
+  }
+  notes += '\n';
+
+  notes += 'FOLLOW-UP REQUIRED\n';
+  notes += '• Review and add follow-up items manually\n\n';
+
+  notes += '─'.repeat(50) + '\n';
+  notes += `WORD COUNT: ${words.length} words\n`;
+
+  return notes;
+}
+
+function formatNotesHTML(notes) {
+  return notes
+    .replace(/^(MEETING:|DATE:|SUMMARY|KEY DISCUSSION POINTS|ACTION ITEMS|IMPORTANT OBSERVATIONS|FOLLOW-UP REQUIRED|WORD COUNT:)/gm,
+      '<div class="n-section">$1</div>')
+    .replace(/─+/g, '<hr style="border:none;border-top:1px solid #2e2e2a;margin:6px 0">');
+}
+
+function copyNotes() {
+  const text = document.getElementById('notesContent').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = 'Copy for OneNote', 2000);
+  });
+}
+
+function newSession() {
+  stopRecording();
+  finalTranscript = '';
+  currentSessionId = null;
+  document.getElementById('transcriptContent').innerHTML = '';
+  document.getElementById('meetingName').value = '';
+  document.getElementById('notesBox').classList.remove('visible');
+  document.getElementById('wordCount').textContent = '0 words';
+  document.getElementById('btnNotes').disabled = true;
+  setStatus('', 'Ready');
+}
+
+function renderSessions() {
+  // used internally; calendar is primary view
+}
+
+function setStatus(type, text) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'dot' + (type ? ' ' + type : '');
+  document.getElementById('statusText').textContent = text;
+}
+
+function startTimer() {
+  seconds = 0;
+  const el = document.getElementById('timer');
+  el.style.display = 'inline';
+  timerInterval = setInterval(() => {
+    seconds++;
+    const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const s = String(seconds % 60).padStart(2, '0');
+    el.textContent = m + ':' + s;
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  document.getElementById('timer').style.display = 'none';
+}
+
+// ══════════════════════════════════════════
+// CALENDAR
+// ══════════════════════════════════════════
+let calYear, calMonth, selectedDate = null;
+
+function toDateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function renderCalendar() {
+  const now = new Date();
+  if (!calYear) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
+
+  const label = new Date(calYear, calMonth, 1)
+    .toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  document.getElementById('calMonthLabel').textContent = label;
+
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  // Day labels
+  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'cal-day-label';
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const daysInPrev = new Date(calYear, calMonth, 0).getDate();
+  const todayKey = toDateKey(now);
+
+  // Build set of dates with sessions
+  const sessionDates = {};
+  sessions.forEach(s => {
+    if (!sessionDates[s.dateKey]) sessionDates[s.dateKey] = 0;
+    sessionDates[s.dateKey]++;
+  });
+
+  // Prev month filler
+  for (let i = 0; i < firstDay; i++) {
+    const d = daysInPrev - firstDay + 1 + i;
+    const el = document.createElement('div');
+    el.className = 'cal-day other-month';
+    el.textContent = d;
+    grid.appendChild(el);
+  }
+
+  // Current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const el = document.createElement('div');
+    el.className = 'cal-day';
+    if (key === todayKey) el.classList.add('today');
+    if (key === selectedDate) el.classList.add('selected');
+    if (sessionDates[key]) el.classList.add('has-sessions');
+
+    el.innerHTML = `<span>${d}</span>`;
+    if (sessionDates[key]) {
+      const dot = document.createElement('div');
+      dot.className = 'session-dot';
+      el.appendChild(dot);
+    }
+
+    if (sessionDates[key] || key === todayKey) {
+      el.onclick = () => selectDay(key, d);
+    }
+    grid.appendChild(el);
+  }
+
+  // Remaining cells
+  const total = firstDay + daysInMonth;
+  const remaining = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let d = 1; d <= remaining; d++) {
+    const el = document.createElement('div');
+    el.className = 'cal-day other-month';
+    el.textContent = d;
+    grid.appendChild(el);
+  }
+
+  if (selectedDate) showDayDetail(selectedDate);
+}
+
+function changeMonth(dir) {
+  calMonth += dir;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  selectedDate = null;
+  document.getElementById('dayDetail').style.display = 'none';
+  renderCalendar();
+}
+
+function selectDay(key, dayNum) {
+  selectedDate = key;
+  renderCalendar();
+  showDayDetail(key);
+}
+
+function showDayDetail(key) {
+  const detail = document.getElementById('dayDetail');
+  const header = document.getElementById('dayDetailHeader');
+  const list = document.getElementById('daySessionsList');
+
+  const daySessions = sessions.filter(s => s.dateKey === key);
+  const [y, m, d] = key.split('-');
+  const dateObj = new Date(y, m-1, d);
+  const label = dateObj.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  header.textContent = label;
+  detail.style.display = 'block';
+
+  if (daySessions.length === 0) {
+    list.innerHTML = '<div class="no-sessions-day">No meetings recorded on this day.</div>';
+    return;
+  }
+
+  list.innerHTML = daySessions.map(s => `
+    <div class="day-session-item" onclick="openSessionModal(${s.id})">
+      <div class="day-session-name">${s.name}
+        <span class="badge">${s.notes ? 'Notes' : 'Transcript'}</span>
+      </div>
+      <div class="day-session-meta">${s.timeStr} · ${s.transcript.split(' ').filter(Boolean).length} words</div>
+    </div>
+  `).join('');
+
+  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ══════════════════════════════════════════
+// SESSION MODAL
+// ══════════════════════════════════════════
+function openSessionModal(id) {
+  const s = sessions.find(x => x.id === id);
+  if (!s) return;
+
+  document.getElementById('modalTitle').textContent = s.name;
+  document.getElementById('modalMeta').textContent = `${s.dateStr}  ·  ${s.timeStr}  ·  ${s.transcript.split(' ').filter(Boolean).length} words`;
+
+  let body = '';
+  if (s.notes) {
+    body += `<div class="modal-section">Structured Notes</div>
+             <div class="modal-text">${formatNotesHTML(s.notes)}</div>`;
+  }
+  body += `<div class="modal-section">Transcript</div>
+           <div class="modal-text" style="font-size:0.82rem;color:var(--text2)">${s.transcript}</div>`;
+  document.getElementById('modalBody').innerHTML = body;
+
+  document.getElementById('modalActions').innerHTML = `
+    <button class="modal-btn primary" onclick="copySessionNotes(${id})">Copy Notes</button>
+    <button class="modal-btn" onclick="loadSessionToRecorder(${id})">Edit / Re-process</button>
+    <button class="modal-btn danger" onclick="deleteSession(${id})">Delete</button>
+  `;
+
+  document.getElementById('sessionModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('sessionModal').classList.remove('open');
+}
+
+function copySessionNotes(id) {
+  const s = sessions.find(x => x.id === id);
+  if (!s) return;
+  const text = s.notes || s.transcript;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('#modalActions .modal-btn.primary');
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = 'Copy Notes', 2000);
+  });
+}
+
+function loadSessionToRecorder(id) {
+  const s = sessions.find(x => x.id === id);
+  if (!s) return;
+  closeModal();
+  switchTab('recorder');
+  document.getElementById('meetingName').value = s.name;
+  finalTranscript = s.transcript;
+  currentSessionId = s.id;
+  renderTranscript('');
+  if (s.notes) {
+    document.getElementById('notesBox').classList.add('visible');
+    document.getElementById('notesContent').innerHTML = formatNotesHTML(s.notes);
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function deleteSession(id) {
+  if (!confirm('Delete this session permanently?')) return;
+  sessions = sessions.filter(s => s.id !== id);
+  localStorage.setItem('meetlog_sessions', JSON.stringify(sessions));
+  closeModal();
+  renderCalendar();
+}
+
+// ══════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════
+function switchTab(tab) {
+  ['recorder','calendar'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    document.getElementById('panel-' + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'calendar') renderCalendar();
+}
+
+// Close modal on backdrop click
+document.getElementById('sessionModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
